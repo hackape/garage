@@ -4,7 +4,7 @@ cnNumber = (input) ->
   wansUnitMap = ['', '万', '亿', '兆']
 
   if typeof input != 'number' then return ''
-  if input == 0 then return cnNumMap[0]
+  if input == 0 then return '〇'
   reversedDigits = String(input).split('').reverse().map((d)-> Number(d))
   digitGroups = []
   while reversedDigits.length
@@ -17,26 +17,18 @@ cnNumber = (input) ->
     highestDigit = group[group.length - 1]
     groupSum = group.reduce( (sum, x, i) -> sum += x * window.Math.pow(10, i) )
 
-    if _possibleMiddleZero and _hasMetZero and groupSum
-      _middleZero = cnNumMap[0]
-    else
-      _middleZero = ''
+    _middleZero = if _possibleMiddleZero and _hasMetZero and groupSum
+    then cnNumMap[0] else ''
 
-    _hasMetZero = if highestDigit == 0 then true else false
-    if groupSum == 0
-      wansUnit = ''
-    else
-      _possibleMiddleZero = true
-      wansUnit = wansUnitMap[_i]
+    _hasMetZero = highestDigit and true
+    _possibleMiddleZero = true if groupSum
+    wansUnit = if groupSum then wansUnitMap[_i] else ''
 
     possibleMiddleZero = false
     hasMetZero = false
-    group.map
     groupRet = group.reduce((lastRet, d, i) ->
-      if possibleMiddleZero and hasMetZero and d
-        middleZero = cnNumMap[0]
-      else
-        middleZero = ''
+      middleZero = if possibleMiddleZero and hasMetZero and d
+      then cnNumMap[0] else ''
 
       if d == 0
         hasMetZero = true
