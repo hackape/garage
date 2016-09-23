@@ -24,3 +24,11 @@ function traverse (entryPoint, predicate, action, accumulator=[], maxExec) {
 
   }, accumulator)
 }
+
+// This is why i wrote it
+traverse('app', (f)=>{return /\.jsx?$/.test(f)}, filepath => {
+  fs.readFile(filepath, 'utf8', (err, data) => {
+    if (err) throw err
+    fs.writeFile(filepath, '\/\* flow weak \*\/\n'+data, 'utf8')
+  })
+})
