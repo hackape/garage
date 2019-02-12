@@ -1,4 +1,4 @@
-window.FindReact = function(node) {
+function findReactInstance(node) {
     var internalInstance = null;
     for (var key in node) {
         if (key.startsWith("__reactInternalInstance$")) {
@@ -17,3 +17,17 @@ window.FindReact = function(node) {
         return internalInstance._currentElement._owner._instance;
     }
 }
+
+function findNearestReactInstance(node, skipSelf) {
+    var target = node;
+    if (skipSelf) target = node.parentNode;
+    var instance = null;
+    while (target && !instance) {
+        instance = findReactInstance(target);
+        target = target.parentNode;
+    }
+    return instance;
+}
+
+window.$r = findReactInstance;
+window.$rup = findNearestReactInstance;
