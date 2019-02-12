@@ -1,4 +1,4 @@
-window.FindReact = function(dom) {
+window.FindReact = function(node) {
     var internalInstance = null;
     for (var key in node) {
         if (key.startsWith("__reactInternalInstance$")) {
