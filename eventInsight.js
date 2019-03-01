@@ -1,5 +1,8 @@
-var eventInsight = (function() {
+var ei, eventInsight;
+ei = eventInsight = (function() {
   const nsp = '[EventInsight] ';
+  var __snapshot__;
+
   function walk(node, onEnterNode) {
     onEnterNode(node);
     var node = node.firstChild;
@@ -9,49 +12,44 @@ var eventInsight = (function() {
     }
   }
 
-  function getIndex(node) {
-    var i = 0;
-    while( (node = node.previousSibling) != null ) {
-      i++;
-    }
-    return i;
+  const hq = {
+    trace: '',
+    debug: false
   }
 
-  function getPath(node) {
-    const paths = [];
-    while (node) {
-      if (node === document.body) {
-        paths.push('/html/body');
-        break;
+  function wrapListener(node, eventType, listener) {
+    return function() {
+      const event = arguments[0];
+      if (hq.trace && (hq.trace === 'all' || hq.trace === eventType)) {
+        console.log(nsp + 'Trigger eventType: ' + eventType);
+        console.log('Target:', node);
+        console.log('Event:', event);
+        console.log('Listener:', listener);
+        console.log('===========================\n');
+        if (hq.debug) debugger;
       }
-      let tagName = node.tagName.toLowerCase();
-      if (node.parentNode && node.parentNode.childElementCount === 1) {
-        paths.push(tagName);
-      } else {
-        tagName += '[' + getIndex(node) + ']';
-        paths.push(tagName);
-      }
-      node = node.parentNode;
+      const ret = listener.apply(this, arguments);
+      return ret;
     }
-    paths.reverse();
-    return paths.join('/');
   }
 
-  function serialize(records) {
-    var serialized = {}
-    for (var r of records) {
-      const [node, listeners] = r;
-      const listenersSerialized = {};
-      for (var eventType in listeners) {
-        listenersSerialized[eventType] = listeners[eventType].map(item => item.listener.toString());
-      }
-      const id = getPath(node);
-      serialized[id] = {
-        node,
-        listeners: listenersSerialized
-      };
+  function tamperListeners(entry) {
+    const [node, listenersMap] = entry;
+    for (let eventType in listenersMap) {
+      const listeners = listenersMap[eventType];
+      listeners.forEach(listener => {
+        node.removeEventListener(eventType, listener);
+        node.addEventListener(eventType, wrapListener(node, eventType, listener));
+      });
     }
-    return serialized;
+  }
+
+  function tamper() {
+    if (!__snapshot__) __snapshot__ = getSnapshotOfDomEventListeners();
+    const db = Array.from(__snapshot__.entries());
+    db.forEach(entry => {
+      tamperListeners(entry);
+    })
   }
 
   function getSnapshotOfDomEventListeners() {
@@ -60,9 +58,14 @@ var eventInsight = (function() {
       if (node instanceof EventTarget) {
         // `getEventListeners()` only exists in ChromeDevTool
         const eventListeners = getEventListeners(node)
-        for (let key in eventListeners) {
-          snapshot.set(node, eventListeners)
-          break;
+        const eventListenersEntries = Object.entries(eventListeners)
+        if (eventListenersEntries.length > 0) {
+          const eventListenersMap = eventListenersEntries.reduce((acc, entry) => {
+            const [eventType, listenerDescs] = entry;
+            acc[eventType] = listenerDescs.map(item => item.listener);
+            return acc;
+          }, {})
+          snapshot.set(node, eventListenersMap);
         }
       }
     });
@@ -70,7 +73,6 @@ var eventInsight = (function() {
     return snapshot;
   }
 
-  var __snapshot__;
   function eventInsight(query, dbMap) {
     if (!__snapshot__) __snapshot__ = getSnapshotOfDomEventListeners();
     if (!dbMap) dbMap = __snapshot__;
@@ -156,5 +158,15 @@ var eventInsight = (function() {
     return result;
   }
 
-  return { find: eventInsight, getSnapshot: getSnapshotOfDomEventListeners }
+  return { 
+    find: eventInsight,
+    getSnapshot: getSnapshotOfDomEventListeners,
+    tamper,
+    trace(eventType) {
+      hq.trace = eventType;
+    },
+    debug(boolean) {
+      hq.debug = boolean;
+    }
+  }
 })();
